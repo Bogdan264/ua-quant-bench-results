@@ -106,8 +106,44 @@ footer { color: var(--muted); font-size: 12.5px; margin-top: 24px; }
   border: 1px solid var(--axis); box-shadow: 0 3px 12px rgba(0,0,0,.16); border-radius: 3px; padding: 8px 10px;
   font-size: 12.5px; line-height: 1.45; max-width: 300px; display: none; }
 #tip b { font-weight: 700; }
-@media (max-width: 560px) { h1 { font-size: 20px; } .tile .v { font-size: 22px; } .card { padding: 16px; }
-  .tile { border-right: 0; border-bottom: 1px solid var(--grid); } }
+/* phones: one-row header with a scrolling menu, stacked controls, tables keep the first column in view */
+@media (max-width: 640px) {
+  html { scroll-padding-top: 96px; }
+  .top-in { padding: 6px 12px 0; gap: 0 12px; min-height: 0; }
+  .brand { flex: 1; }
+  .theme { order: 2; }
+  .top nav { order: 3; flex: 0 0 100%; flex-wrap: nowrap; overflow-x: auto; gap: 0 18px; padding: 2px 0 8px; scrollbar-width: none; }
+  .top nav::-webkit-scrollbar { display: none; }
+  .top nav a { white-space: nowrap; }
+  .wrap { padding: 16px 10px 40px; }
+  h1 { font-size: 20px; }
+  .card { padding: 16px 14px; margin-top: 14px; }
+  .tiles { grid-template-columns: 1fr 1fr; }
+  .tile { padding: 12px 14px; border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); }
+  .tile:nth-child(2n) { border-right: 0; }
+  .tile:nth-last-child(-n+2) { border-bottom: 0; }
+  .tile .v { font-size: 22px; }
+  .controls { gap: 10px; }
+  .controls > span { display: flex; flex-direction: column; align-items: stretch; width: 100%; min-width: 0; }
+  .controls > span > .lbl { margin: 0 0 4px; }
+  .controls select { width: 100%; }
+  .seg button { padding: 7px 10px; }
+  .tbl-wrap { background:
+      linear-gradient(to left, var(--surface) 30%, transparent) right center / 28px 100% no-repeat local,
+      radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.18), transparent) right center / 12px 100% no-repeat scroll; }
+  .tbl-wrap tbody td:first-child, .tbl-wrap thead tr:not(.grp) th:first-child { position: sticky; left: 0; z-index: 1;
+    background: var(--surface); white-space: normal; min-width: 136px; }
+  #examples table, #examples tbody, #examples tr { display: block; }
+  #examples thead { display: none; }
+  #examples tr { padding: 10px 0; border-bottom: 1px solid var(--grid); }
+  #examples td { display: inline; padding: 0; border: 0; white-space: normal; text-align: left; position: static;
+    background: none; min-width: 0 !important; font-weight: 600; }
+  #examples td:nth-child(2)::before, #examples td:nth-child(3)::before { content: " · "; font-weight: 400; color: var(--muted); }
+  #examples td:nth-child(4) { font-weight: 400; color: var(--ink-2); }
+  #examples td:nth-child(4)::before { content: " · рос. слів: "; color: var(--muted); }
+  #examples td:nth-child(5) { display: block; margin-top: 4px; font-weight: 400; }
+  #tip { max-width: calc(100vw - 16px); }
+}
 @media print { .top { position: static; } .theme, .toggle { display: none; } }
 </style>
 </head>
@@ -311,8 +347,8 @@ function barPath(x, w, y0, y1, r) {
 function renderChart() {
   const v = view(state.group, state.task);
   const el = document.getElementById("chart");
-  const W = Math.max(320, el.clientWidth), H = W < 520 ? 320 : 400;
-  const m = { t: 40, r: 14, b: 62, l: 62 };
+  const W = Math.max(280, el.clientWidth), H = W < 520 ? 320 : 400, small = W < 480;   // small: phone width
+  const m = { t: small ? 52 : 40, r: small ? 6 : 14, b: 62, l: small ? 44 : 62 };
   const vals = v.series.flatMap((s) => s.vals.filter(Boolean).flatMap((r) => [r.deg, r.lo, r.hi]))
     .filter((x) => x != null).map((x) => 100 * x);
   let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
@@ -332,13 +368,14 @@ function renderChart() {
     out.push(`<text x="${m.l - 10}" y="${yy + 4.5}" text-anchor="end" font-size="13" fill="${css("--ink-2")}" style="font-variant-numeric:tabular-nums">${fmt(t, step < 1 ? 1 : 0, true)}</text>`);
   }
   out.push(`<text x="${m.l}" y="16" font-size="13.5" font-weight="600" fill="${css("--ink")}">Погіршення відносно ${esc(v.g.reference)}, ${unit}</text>`);
-  out.push(`<text x="${W - m.r}" y="16" text-anchor="end" font-size="12.5" fill="${css("--muted")}">вище означає гірше</text>`);
+  out.push(small ? `<text x="${m.l}" y="34" font-size="12.5" fill="${css("--muted")}">вище означає гірше</text>` :
+    `<text x="${W - m.r}" y="16" text-anchor="end" font-size="12.5" fill="${css("--muted")}">вище означає гірше</text>`);
   const y0 = y(0);
   v.schemes.forEach((s, i) => {
     const cx = m.l + band * i + band / 2, total = ns * bw + (ns - 1) * gap;
     const z = sizeOf(v.g, s), narrow = band < 96;
     const name = narrow ? s.replace(/_K_M$|_K$|_0$/, "").replace("-W4G128", "") : s;      // Q5_K_M -> Q5 on a phone
-    const sub = z.bits != null ? `${nf(narrow ? 1 : 2).format(z.bits)} біт/вагу` : "";
+    const sub = z.bits != null ? (narrow ? nf(1).format(z.bits) : `${nf(2).format(z.bits)} біт/вагу`) : "";   // unit moves to the axis caption
     if (i) out.push(`<line x1="${m.l + band * i}" x2="${m.l + band * i}" y1="${H - m.b}" y2="${H - m.b + 6}" stroke="${css("--axis")}" stroke-width="1"/>`);
     out.push(`<text x="${cx}" y="${H - m.b + 24}" text-anchor="middle" font-size="14" font-weight="600" fill="${css("--ink")}">${esc(name)}</text>`);
     out.push(`<text x="${cx}" y="${H - m.b + 42}" text-anchor="middle" font-size="12.5" fill="${css("--ink-2")}">${esc(sub)}</text>`);
@@ -365,12 +402,14 @@ function renderChart() {
     });
     out.push(`<rect class="hit" data-i="${i}" x="${m.l + band * i}" y="${m.t}" width="${band}" height="${H - m.t - m.b + 46}" fill="transparent" tabindex="0"/>`);
   });
-  out.push(`<text x="${m.l + (W - m.l - m.r) / 2}" y="${H - 2}" text-anchor="middle" font-size="12.5" fill="${css("--muted")}">Схема квантизації (стиснення зростає зліва направо)</text>`);
+  const narrowAxis = band < 96;
+  out.push(`<text x="${m.l + (W - m.l - m.r) / 2}" y="${H - 2}" text-anchor="middle" font-size="12.5" fill="${css("--muted")}">${narrowAxis ?
+    "Схема, біт/вагу (стиснення зростає →)" : "Схема квантизації (стиснення зростає зліва направо)"}</text>`);
   out.push("</svg>");
   el.innerHTML = out.join("");
   el.querySelectorAll(".hit").forEach((h) => {
     const show = (e) => tip(e, tipHtml(v, +h.dataset.i));
-    h.addEventListener("mousemove", show); h.addEventListener("focus", show);
+    h.addEventListener("mousemove", show); h.addEventListener("focus", show); h.addEventListener("click", show);   // click: touch screens
     h.addEventListener("mouseleave", hideTip); h.addEventListener("blur", hideTip);
   });
 }
@@ -700,6 +739,7 @@ document.getElementById("tbl-toggle").addEventListener("click", (e) => {
   e.target.textContent = state.table ? "Сховати таблицю" : "Показати таблицю"; if (state.table) renderTable();
 });
 let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(renderChart, 120); });
+window.addEventListener("scroll", hideTip, { passive: true });   // a tapped tooltip must not float over the page
 (function boot() {
   let t = "auto"; try { t = localStorage.getItem("uaqb-theme") || "auto"; } catch (e) { /* default */ }
   const forced = location.hash.match(/theme=(light|dark)/);      // e.g. index.html#theme=dark (projector)
